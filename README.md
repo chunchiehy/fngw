@@ -1,7 +1,7 @@
 # Fused Network Gromov-Wasserstein Distance
 Implementation of the TMLR paper [Exploiting Edge Features in Graph-based Learning with Fused Network Gromov-Wasserstein Distance](https://openreview.net/forum?id=8uCNtJ2Fmo).
 
-> **Attention:** In the paper, we use `E` to denote edge feature tensor, in our code, we use `C` instead for some cases.
+> **Attention:** In the paper, we use *E* to denote edge feature tensor, in our code, we use *C* instead for some cases.
 
 ## Environment Preparation
 Before running the code, please create the following conda environment:
@@ -25,7 +25,9 @@ To compute the fngw distance between two node-featured and edge-featured graphs,
 ```python
 from fngw import fused_network_gromov_wasserstein2
 ```
-![](figures/dist_example.png)
+<center>
+<img src="figures/dist_example.png" width="500"/>
+</center>
 Here is an simple example of how to compute the FNGW distance between the two above graphs:
 ```python
 from ot.utils import unif, dist
@@ -56,6 +58,14 @@ print(dist)
 ```
 
 ## Barycenter Computation
+Given a set of graphs, to compute the FNGW barycenter between them, please call the following function:
+```python
+from fngw import fngw_barycenters
+```
+It should be noted that the number of nodes in the barycenter graph need to be specified. A circle barycenter example can be found in notebook `barycenter_example.ipynb`.
+<center>
+<img src="figures/circle_bary.png" width="600"/>
+</center>
 
 
 ## Graph Classification
