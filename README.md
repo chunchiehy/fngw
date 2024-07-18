@@ -25,9 +25,9 @@ To compute the fngw distance between two node-featured and edge-featured graphs,
 ```python
 from fngw import fused_network_gromov_wasserstein2
 ```
-<center>
+<p align="center">
 <img src="figures/dist_example.png" width="500"/>
-</center>
+</p>
 Here is an simple example of how to compute the FNGW distance between the two above graphs:
 ```python
 from ot.utils import unif, dist
@@ -63,9 +63,9 @@ Given a set of graphs, to compute the FNGW barycenter between them, please call 
 from fngw import fngw_barycenters
 ```
 It should be noted that the number of nodes in the barycenter graph need to be specified. A circle barycenter example can be found in notebook `barycenter_example.ipynb`.
-<center>
+<p align="center">
 <img src="figures/circle_bary.png" width="600"/>
-</center>
+</p>
 
 
 ## Graph Classification
