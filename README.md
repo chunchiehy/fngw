@@ -17,7 +17,9 @@ pip install POT==0.8.2 \
             networkx==3.1 \
             matplotlib==3.5.2 \
             torch-geometric==2.1.0.post1 \
-            tqdm==4.64.0
+            tqdm==4.64.0 \
+            pandas==2.0.3 \
+            chainer-chemistry==0.7.1
 ```
 
 ## Distance Computation
@@ -74,6 +76,13 @@ It should be noted that the number of nodes in the barycenter graph need to be s
 ## Graph Classification
 
 ## Supervised Graph Prediction: Fingerprint to Molecule
+### 1. Create dataset
+In order to create the **Fin2Mol** dataset of the first Supervised Graph Prediction task presented in our paper, please run the following script:
+```bash
+cd sgp_fin2mol
+python create_data.py
+```
+Normally, you can found the created input fingerprint and output graph files in the directory `sgp_fin2mol`.
 
 
 ## Supervised Graph Prediction: Metabolite Identification
