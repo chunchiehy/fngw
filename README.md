@@ -82,8 +82,25 @@ In order to create the **Fin2Mol** dataset of the first Supervised Graph Predict
 cd sgp_fin2mol
 python create_data.py
 ```
-Normally, you can found the created input fingerprint and output graph files in the directory `sgp_fin2mol`.
+Normally, you can find the created input fingerprint and output graph files in the directory `sgp_fin2mol`.
 
 
 ## Supervised Graph Prediction: Metabolite Identification
+Edge information should be one of 'type', 'stereo' or 'mix'.
+### 1. Create dataset
+```bash
+cd sgp_metabolite_id
+python build_data.py --edge_info=type
+```
+
+### 2. Cross validation to choose the parameters
+```bash
+python cross_validation.py --edge_info=type
+```
+
+### 3. Get performance on the test set with the best parameters from the CV
+```bash
+python test.py --edge_info=type --alpha=0.1 --beta=0.1
+```
+
 
