@@ -77,7 +77,6 @@ It should be noted that the number of nodes in the barycenter graph need to be s
 
 ## Supervised Graph Prediction: Fingerprint to Molecule
 ### 1. Create dataset
-Download the dataset from https://zenodo.org/records/804241#.Yi9bzS_pNhE and put the data into the `Data` directory.
 In order to create the **Fin2Mol** dataset of the first Supervised Graph Prediction task presented in our paper, please run the following script:
 ```bash
 cd sgp_fin2mol
@@ -89,6 +88,7 @@ Normally, you can find the created input fingerprint and output graph files in t
 ## Supervised Graph Prediction: Metabolite Identification
 Edge information should be one of 'type', 'stereo' or 'mix'.
 ### 1. Create dataset
+Download the dataset from https://zenodo.org/records/804241#.Yi9bzS_pNhE and put the data into the `Data` directory.
 ```bash
 cd sgp_metabolite_id
 python build_data.py --edge_info=type
