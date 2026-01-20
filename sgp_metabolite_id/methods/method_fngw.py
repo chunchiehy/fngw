@@ -11,6 +11,7 @@ from fngw import fused_network_gromov_wasserstein2
 from multiprocessing import Pool
 import functools
 
+
 class FngwEstimator:
 
     def __init__(self, alpha=0.33, beta=0.33):
@@ -40,45 +41,50 @@ class FngwEstimator:
         Cs_cand, Ls_cand, Es_cand, _, _ = Y_c
         # print(len(Es_cand))
         # print(len(Ls_cand))
-        #print(Es_cand)
+        # print(Es_cand)
         # print(Ls_cand[0].shape)
         # print(Cs_cand[0].shape)
         # print(Es_cand[0].shape)
 
-        #print("Es_cand", Es_cand)
+        # print("Es_cand", Es_cand)
         n_c = len(Cs_cand)
         n_tr = len(Features)
         D = np.zeros((n_tr, n_c))
 
         for i in range(n_tr):
-            G1s = [[Cs[i].copy(), Features[i][:, : -5].copy(), Es[i].copy()] for _ in range(n_c)]
-            G2s = [[Cs_cand[j], Ls_cand[j][:, : -5], Es_cand[j]] for j in range(n_c)]
+            G1s = [
+                [Cs[i].copy(), Features[i][:, :-5].copy(), Es[i].copy()]
+                for _ in range(n_c)
+            ]
+            G2s = [[Cs_cand[j], Ls_cand[j][:, :-5], Es_cand[j]] for j in range(n_c)]
             if num_thread is None:
                 ds = []
-                for (G1, G2) in zip(G1s, G2s):
+                for G1, G2 in zip(G1s, G2s):
                     d = fngw_distance(G1, G2, alpha=self.alpha, beta=self.beta)
                     ds.append(d)
-            
+
             else:
-                pool_func = functools.partial(fngw_distance,
-                                            alpha=self.alpha,
-                                            beta=self.beta)
+                pool_func = functools.partial(
+                    fngw_distance, alpha=self.alpha, beta=self.beta
+                )
                 with Pool(num_thread) as p:
                     ds = p.starmap(pool_func, zip(G1s, G2s))
-            
-            #print(ds)
+
+            # print(ds)
             D[i] = np.array(ds)
 
         return D
 
-    def predict(self, K_tr_te, n_bary, Y_te, n_c_max=200, num_thread=None, edge_info='type'):
+    def predict(
+        self, K_tr_te, n_bary, Y_te, n_c_max=200, num_thread=None, edge_info="type"
+    ):
 
         n_te = K_tr_te.shape[1]
         A = self.M.dot(K_tr_te)
 
         # Compute n_te barycenters with n_bary points max for each barycenter
-        mean_topk = np.array([0., 0., 0.])
-        mean_fgw = np.array([0., 0.])
+        mean_topk = np.array([0.0, 0.0, 0.0])
+        mean_fgw = np.array([0.0, 0.0])
         n_pred = 0
         error_type = []
         idxs_predict = []
@@ -89,45 +95,95 @@ class FngwEstimator:
             lambdas = A[:, i]
             idxs = np.argsort(lambdas)[-n_bary:]
             lambdas = [A[j, i] for j in idxs]
-            Cs = [self.Y[0][idx]for idx in idxs]
+            Cs = [self.Y[0][idx] for idx in idxs]
             Features = [self.Y[1][idx] for idx in idxs]
             Es = [self.Y[2][idx] for idx in idxs]
 
             # load candidate
             try:
-                #print(Y_te[4][i])
+                # print(Y_te[4][i])
                 In = load_candidate_inchi(Y_te[4][i])
             except FileNotFoundError:
-                print('FILE NOT FOUND')
-                error_type.append('filenotfound')
+                print("FILE NOT FOUND")
+                error_type.append("filenotfound")
                 continue
 
             if In == -1:
-                error_type.append('In')
+                error_type.append("In")
                 continue
             try:
                 Y_c = [inchi_to_graph(inc, edge_info=edge_info) for inc in In]
-                Y_c = [[g[0] for g in Y_c], [g[1] for g in Y_c], [g[3] for g in Y_c], [], In]
+                Y_c = [
+                    [g[0] for g in Y_c],
+                    [g[1] for g in Y_c],
+                    [g[3] for g in Y_c],
+                    [],
+                    In,
+                ]
             except TypeError:
-                error_type.append('type')
+                error_type.append("type")
                 continue
 
             # compute score
             t0 = time()
             n_c = len(In)
             if n_c > n_c_max:
-                error_type.append('too big')
+                error_type.append("too big")
                 continue
             if n_c < 1:
-                error_type.append('too small')
+                error_type.append("too small")
                 continue
 
             idxs_predict.append(i)
             mfs_predict.append(Y_te[4][i])
 
+            if self.ground_metric in ["diffuse"]:
+                Y_c_d = diffuse(Y_c, self.tau)
+            elif self.ground_metric in ["onehot", "fine"]:
+                Y_c_d = Y_c
+            D = self.train_candidate_gwd(Y_c_d, Cs, Features, Es, num_thread=num_thread)
+            score = -D.T.dot(lambdas)
+
+            print(
+                f"{i}: Computation time GW distances n_c x n_tr = {n_c} x {len(lambdas)}: {time() - t0} s"
+            )
+
+            # predict
+            idx_sorted = np.argsort(score)
+            Inc_sorted = [In[idx] for idx in idx_sorted]
+            G_pred = [
+                Y_c[0][idx_sorted[-1]],
+                Y_c[1][idx_sorted[-1]][:, :13],
+                Y_c[2][idx_sorted[-1]],
+            ]
+            G_te = [Y_te[0][i], Y_te[1][i][:, :13], Y_te[2][i]]
+
+            # Compute scores
+            fngw = self.fngw_distance(G_pred, G_te)
+            gw = self.gw_distance(G_pred, G_te)
+            print(f"{i}: FNGW: {(fngw) / (1 - self.alpha - self.beta)} / {gw}")
+            mean_fgw += np.array([(fngw) / (1 - self.alpha - self.beta), gw])
+
+            # compute top-k
+            inchi_true = Y_te[3][i]
+            # print(inchi_true)
+            topk = [
+                inchi_true in Inc_sorted[-1:],
+                inchi_true in Inc_sorted[-10:],
+                inchi_true in Inc_sorted[-20:],
+            ]
+            topk = np.array(topk).astype(int)
+            mean_topk += topk
+            n_pred += 1
+            print(
+                f"{i}: n_candidate x n_tr = {len(Inc_sorted)} x {len(lambdas)},"
+                f" mean topk = {mean_topk / n_pred * 100}",
+                flush=True,
+            )
+
         mean_fgw = mean_fgw / n_pred
         mean_topk = mean_topk / n_pred * 100
-        print(f'n prediction: {n_pred}', flush=True)
+        print(f"n prediction: {n_pred}", flush=True)
 
         print(error_type)
 
@@ -145,28 +201,12 @@ class FngwEstimator:
 
         # keep N largest edges
         ind = np.unravel_index(np.argsort(C_bary, axis=None), C_bary.shape)
-        ind_max = (ind[0][-2 * N_edges:], ind[1][-2 * N_edges:])
+        ind_max = (ind[0][-2 * N_edges :], ind[1][-2 * N_edges :])
         C = np.zeros(C_bary.shape)
         C[ind_max] = 1
 
         return C, F
 
-    # def fgw_distance(self, G1, G2):
-
-    #     n1 = len(G1[1])
-    #     n2 = len(G2[1])
-    #     p1 = ot.unif(n1)
-    #     p2 = ot.unif(n2)
-    #     loss_fun = 'square_loss'
-    #     Y_norms = np.linalg.norm(G1[1], axis=1) ** 2
-    #     Z_norms = np.linalg.norm(G2[1], axis=1) ** 2
-    #     scalar_products = G1[1].dot(G2[1].T)
-    #     M = Y_norms.reshape(-1, 1) + Z_norms.reshape(1, -1) - 2 * scalar_products
-    #     d = ot.gromov.fused_gromov_wasserstein2(M, G1[0], G2[0], p1, p2,
-    #                                             loss_fun=loss_fun, alpha=self.alpha)
-
-    #     return d
-    
     def fngw_distance(self, G1, G2):
         C1 = G1[2]
         F1 = G1[1]
@@ -176,8 +216,8 @@ class FngwEstimator:
         F2 = G2[1]
         A2 = G2[0]
 
-        #print(C2)
-        #print(C1)
+        # print(C2)
+        # print(C1)
         n1 = C1.shape[0]
         n2 = C2.shape[0]
         p = ot.unif(n1)
@@ -191,27 +231,16 @@ class FngwEstimator:
             A2,
             p,
             q,
-            dist_fun_C='l2_norm',
-            dist_fun_A='square_loss',
+            dist_fun_C="l2_norm",
+            dist_fun_A="square_loss",
             alpha=self.alpha,
             beta=self.beta,
             numItermax=100,
             stopThr=1e-5,
             verbose=False,
-            log=True)
+            log=True,
+        )
         return fngw_dist
-
-
-    # def gw_distance(self, G1, G2):
-
-    #     n1 = len(G1[1])
-    #     n2 = len(G2[1])
-    #     p1 = ot.unif(n1)
-    #     p2 = ot.unif(n2)
-    #     loss_fun = 'square_loss'
-    #     d = ot.gromov.gromov_wasserstein2(G1[0], G2[0], p1, p2, loss_fun=loss_fun)
-
-    #     return d
 
 
 def fngw_distance(G1, G2, alpha, beta):
@@ -223,8 +252,8 @@ def fngw_distance(G1, G2, alpha, beta):
     F2 = G2[1]
     A2 = G2[0]
 
-    #print(C2)
-    #print(C1)
+    # print(C2)
+    # print(C1)
     n1 = C1.shape[0]
     n2 = C2.shape[0]
     p = ot.unif(n1)
@@ -238,12 +267,13 @@ def fngw_distance(G1, G2, alpha, beta):
         A2,
         p,
         q,
-        dist_fun_C='l2_norm',
-        dist_fun_A='square_loss',
+        dist_fun_C="l2_norm",
+        dist_fun_A="square_loss",
         alpha=alpha,
         beta=beta,
         numItermax=100,
         stopThr=1e-5,
         verbose=False,
-        log=True)
+        log=True,
+    )
     return fngw_dist

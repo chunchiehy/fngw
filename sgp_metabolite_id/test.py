@@ -38,7 +38,7 @@ def main(alpha=0.1, beta=0.1, edge_info="type"):
     clf.ground_metric = "diffuse"
     L = 1e-4  # kernel ridge regularization parameter
     clf.tau = 0.6  # the bigger tau is the more the neighbor atoms have similar feature. This impact the FGW's ground metric.
-    Y_Tr = diffuse(Y_tr, clf.tau)
+    Y_tr = diffuse(Y_tr, clf.tau)
     clf.train(K_tr, Y_tr, L)
 
     # 4) Predict and compute the test scores
